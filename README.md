@@ -6,23 +6,25 @@ Odrusmark is a static public website and authenticated client workspace for star
 
 - Public overview plus capabilities, technology, ideas, projects, about and contact pages
 - Supabase email/password signup, sign-in, email confirmation messaging, password reset and logout
+- Project-scoped AI copilot for clarifying a brief, drafting an investigation plan, answering project questions and web research with clickable sources
 - Authenticated client overview with live project and legacy research-request lists
-- Project creation using a natural-language objective, success criteria, context, prior attempts, desired timeline and optional attachments
+- Project creation using a natural-language objective, success criteria, context, prior attempts, a requested completion date and optional attachments
+- Internal staff project queue for reviewing submissions, setting statuses and publishing client-visible progress updates
 - Private project overview with status and intake details, plus private project attachments (up to 5, 10 MB each)
 - Original research-request intake and request-detail flow preserved
 - Editable client profile name
 - Additive `projects` database table and RLS policies, plus private Supabase Storage bucket policies. Existing research requests and profiles are retained.
-- No fake users, sample records, fake AI features or service-role credentials
+- No fake client data. AI requires a deployed, authenticated Supabase Edge Function; its provider key stays server-side
 
-The current workspace handles secure intake, private attachments, and basic status/detail viewing. Project tasks, research workspace, deliverables, findings and messaging are future capabilities and are described as such in the interface.
+The workspace handles secure intake, private attachments, project-scoped AI assistance, status tracking and staff-authored progress updates. AI drafts are not official Odrusmark findings. AI receives no attachments and is limited to 30 standard messages and 5 web research runs per user per UTC day. Dedicated data feeds, tasks, findings, deliverables and messaging remain future capabilities.
 
 ## Configure Supabase
 
 1. Create a Supabase project and save its database password in a password manager.
 2. In **Project Settings → API** (or **API Keys**), copy the **Project URL** and the **publishable/anon public key**. A key beginning `sb_publishable_` or the legacy anon JWT can be used in a browser. Never use `service_role` or `sb_secret_` keys in a static app.
 3. Put these values in `js/config.js`, replacing `YOUR_SUPABASE_PROJECT_URL` and `YOUR_SUPABASE_ANON_KEY`.
-4. Open **SQL Editor → New query**, paste `supabase.sql`, and run it. The schema uses `create if not exists` and replaceable policies/triggers so it preserves existing Odrusmark tables/data and adds `projects` and a private Storage bucket.
-5. In **Table Editor**, confirm RLS is enabled on `profiles`, `research_requests` and `projects`.
+4. Open **SQL Editor → New query**, paste the contents of `supabase.sql`, and run it. The schema is designed to preserve existing Odrusmark project and request data.
+5. The updated `supabase.sql` includes the AI tables and limits. If you already ran the original schema, run `supabase-ai.sql` alone. Confirm RLS is enabled on `projects`, `project_updates` and `project_ai_messages`.
 
 The browser key is public by design. RLS and SQL grants enforce private data. New Auth users receive a `client` profile via a database trigger. Role changes must be made in an owner-controlled Supabase SQL session, for example:
 
@@ -30,9 +32,19 @@ The browser key is public by design. RLS and SQL grants enforce private data. Ne
 update public.profiles set role = 'admin' where email = 'verified-staff@example.com';
 ```
 
-The frontend cannot edit a profile role. Researchers and admins can see all projects through RLS and can update project status; only admins can delete. Clients can read their own projects and insert projects with ownership fixed to `auth.uid()`. Clients have no project update or delete policy. Similar isolation policies remain on research requests. No staff dashboard is exposed in this MVP.
+The frontend cannot edit a profile role. Researchers and admins can see all projects through RLS and can update project status; only admins can delete. Clients can read their own projects and insert projects with ownership fixed to `auth.uid()`. Clients have no project update or delete policy. Similar isolation policies remain on research requests. Staff can use `staff.html`. Promote a trusted account to `researcher` or `admin` from the Supabase SQL Editor, for example: `update public.profiles set role = 'researcher' where email = 'staff@example.com';`. Do not make client account creation self-assign staff roles.
 
 Attachments use the non-public `odrusmark-project-files` bucket. Object names follow `<owner UUID>/<project UUID>/<randomized filename>`. Storage RLS checks the caller and parent project. Files are listed through authenticated storage access and opened with five-minute signed URLs. The bucket accepts common document, text, spreadsheet, CSV and image formats and enforces a 10 MB maximum per file.
+
+## Configure the AI project copilot
+
+1. Create an OpenAI API key and enable API billing. API usage is billed separately from ChatGPT plans; review the [OpenAI API pricing](https://platform.openai.com/pricing) before enabling the feature.
+2. In Supabase, open **Edge Functions → Secrets** and add `OPENAI_API_KEY` with the secret value. Never put it in `js/config.js`, a frontend file or GitHub.
+3. In **Edge Functions**, choose **Deploy a new function → Via Editor**, name it `odrusmark-copilot`, paste the contents of `supabase/functions/odrusmark-copilot/index.ts`, turn off the gateway JWT toggle, and deploy. The function uses Supabase's `createSupabaseContext(..., { auth: "user" })` to validate the actual signed-in user itself; a public key alone cannot pass this check. The source file is also in this repository for safekeeping.
+4. The default model is `gpt-6-astra`. To choose a different model available to your API project, add an `OPENAI_MODEL` function secret.
+5. The copilot allows 30 standard messages and 5 web research runs per client per UTC day. Monitor API usage and configure an appropriate spend limit. Web research incurs additional API usage charges.
+
+Before the first request, the client must accept the disclosure that the selected project brief, recent Odrusmark updates and messages are sent to OpenAI. Project attachments are not sent. AI responses are drafts; Odrusmark staff must verify any research before it is presented as an official finding.
 
 ## Configure email authentication
 
@@ -76,7 +88,9 @@ No backend server or build step is required. `js/config.js` is a browser-side co
 - SMTP/auth confirmation decisions, redirect allowlist and email templates
 - A monitored company contact address; `hello@odrusmark.com` is a placeholder
 - GitHub repository owner/name, publishing branch and domain DNS changes
-- Business privacy notice, terms and data-retention policy before collecting client submissions
+- Privacy notice must describe AI data processing before inviting clients to use the copilot
+- OpenAI API key and spend controls; Supabase Edge Function deployment
+- Business terms, contact address and data-retention policy
 
 This workspace has no Supabase credentials, so live signup, email delivery, database connectivity, RLS behavior and custom-domain routing cannot be verified here. The SQL and client are wired for a real Supabase project; those live checks must be done after configuration.
 
@@ -89,6 +103,7 @@ new-project.html, project.html, request.html, request-details.html
 profile.html, reset-password.html
 css/styles.css
 js/config.js, supabase.js, auth.js, site.js, ui.js
-js/dashboard.js, project.js, request.js, request-details.js, profile.js, reset-password.js
-supabase.sql
+js/dashboard.js, copilot.js, project.js, staff.js, request.js, request-details.js, profile.js, reset-password.js
+supabase.sql, supabase-ai.sql, supabase/config.toml, supabase/functions/odrusmark-copilot/index.ts
+AI-SETUP.md
 ```

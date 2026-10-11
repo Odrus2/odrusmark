@@ -1,0 +1,4 @@
+[functions.odrusmark-copilot]
+# @supabase/server validates the signed-in user JWT in this function.
+# This also works when the project uses newer publishable/secret API keys.
+verify_jwt = false

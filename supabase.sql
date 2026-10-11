@@ -49,6 +49,18 @@ create table if not exists public.projects (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.projects add column if not exists target_completion_date date;
+
+create table if not exists public.project_updates (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  author_id uuid not null default auth.uid() references public.profiles(id) on delete restrict,
+  title text not null check (char_length(title) between 3 and 160),
+  body text not null check (char_length(body) between 3 and 10000),
+  created_at timestamptz not null default now()
+);
+create index if not exists project_updates_project_created_idx on public.project_updates(project_id, created_at desc);
+
 create index if not exists projects_owner_created_idx on public.projects (owner_id, created_at desc);
 create index if not exists projects_status_idx on public.projects (status, updated_at desc);
 
@@ -109,6 +121,7 @@ grant execute on function public.current_app_role() to authenticated;
 alter table public.profiles enable row level security;
 alter table public.research_requests enable row level security;
 alter table public.projects enable row level security;
+alter table public.project_updates enable row level security;
 
 drop policy if exists "project owners and staff read project files" on storage.objects;
 create policy "project owners and staff read project files" on storage.objects for select to authenticated
@@ -167,6 +180,13 @@ drop policy if exists "admins delete projects" on public.projects;
 create policy "admins delete projects" on public.projects for delete to authenticated
 using (public.current_app_role() = 'admin');
 
+drop policy if exists "clients read own project updates; staff read all" on public.project_updates;
+create policy "clients read own project updates; staff read all" on public.project_updates for select to authenticated
+using (exists (select 1 from public.projects p where p.id = project_id and p.owner_id = (select auth.uid())) or public.current_app_role() in ('researcher','admin'));
+drop policy if exists "staff publish project updates" on public.project_updates;
+create policy "staff publish project updates" on public.project_updates for insert to authenticated
+with check (author_id = (select auth.uid()) and public.current_app_role() in ('researcher','admin'));
+
 -- Grant only fields the browser needs. In particular clients cannot edit role or request
 -- ownership/status. Only staff roles can change request status via the RLS update policy.
 revoke all on public.profiles from anon, authenticated;
@@ -175,12 +195,126 @@ grant update (full_name) on public.profiles to authenticated;
 revoke all on public.research_requests from anon, authenticated;
 grant select, insert on public.research_requests to authenticated;
 grant update, delete on public.research_requests to authenticated;
+revoke all on public.project_updates from anon, authenticated;
+grant select, insert on public.project_updates to authenticated;
 revoke all on public.projects from anon, authenticated;
 grant select, insert on public.projects to authenticated;
 grant update, delete on public.projects to authenticated;
 
 comment on table public.profiles is 'Application profile linked one-to-one to Supabase Auth users; role elevation is an operator-controlled database action.';
 comment on table public.research_requests is 'Client research intake and status tracking. Client-facing access is constrained by RLS.';
+comment on table public.project_updates is 'Staff-authored progress updates visible to the owner of the related project.';
 comment on table public.projects is 'Primary client-facing unit of work. Future project workspace tables will reference this ID and enforce project membership through RLS.';
+
+commit;
+
+
+-- AI copilot migration is also available separately as supabase-ai.sql.
+-- Odrusmark AI Project Copilot migration
+-- Safe to re-run. Run after the base Odrusmark schema has created profiles and projects.
+begin;
+
+alter table public.projects add column if not exists target_completion_date date;
+
+create table if not exists public.project_updates (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  author_id uuid not null default auth.uid() references public.profiles(id) on delete restrict,
+  title text not null check (char_length(title) between 3 and 160),
+  body text not null check (char_length(body) between 3 and 10000),
+  created_at timestamptz not null default now()
+);
+create index if not exists project_updates_project_created_idx on public.project_updates(project_id, created_at desc);
+alter table public.project_updates enable row level security;
+drop policy if exists "clients read own project updates; staff read all" on public.project_updates;
+create policy "clients read own project updates; staff read all" on public.project_updates for select to authenticated
+using (
+  exists (select 1 from public.projects p where p.id = project_id and p.owner_id = (select auth.uid()))
+  or public.current_app_role() in ('researcher','admin')
+);
+drop policy if exists "staff publish project updates" on public.project_updates;
+create policy "staff publish project updates" on public.project_updates for insert to authenticated
+with check (author_id = (select auth.uid()) and public.current_app_role() in ('researcher','admin'));
+revoke all on public.project_updates from anon, authenticated;
+grant select, insert on public.project_updates to authenticated;
+
+create table if not exists public.project_ai_messages (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role text not null check (role in ('user','assistant')),
+  mode text not null check (mode in ('ask','clarify','plan','research')),
+  content text not null check (char_length(content) between 1 and 12000),
+  sources jsonb not null default '[]'::jsonb check (jsonb_typeof(sources) = 'array'),
+  created_at timestamptz not null default now()
+);
+create index if not exists project_ai_messages_history_idx on public.project_ai_messages(project_id, created_at desc);
+alter table public.project_ai_messages enable row level security;
+drop policy if exists "clients read own project AI messages" on public.project_ai_messages;
+create policy "clients read own project AI messages" on public.project_ai_messages for select to authenticated
+using (
+  user_id = (select auth.uid())
+  and exists (select 1 from public.projects p where p.id = project_id and p.owner_id = (select auth.uid()))
+);
+drop policy if exists "clients send own project AI messages" on public.project_ai_messages;
+create policy "clients send own project AI messages" on public.project_ai_messages for insert to authenticated
+with check (
+  user_id = (select auth.uid()) and role = 'user'
+  and exists (select 1 from public.projects p where p.id = project_id and p.owner_id = (select auth.uid()))
+);
+revoke all on public.project_ai_messages from anon, authenticated;
+grant select, insert on public.project_ai_messages to authenticated;
+grant select, insert on public.project_ai_messages to service_role;
+
+create table if not exists public.project_ai_usage (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  usage_date date not null,
+  standard_count integer not null default 0 check (standard_count >= 0),
+  research_count integer not null default 0 check (research_count >= 0),
+  primary key (user_id, usage_date)
+);
+alter table public.project_ai_usage enable row level security;
+revoke all on public.project_ai_usage from anon, authenticated;
+
+create or replace function public.consume_project_ai_quota(p_is_research boolean)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid := (select auth.uid());
+  v_count integer;
+  v_day date := (now() at time zone 'utc')::date;
+begin
+  if v_user is null then
+    raise exception 'Authentication required';
+  end if;
+  if p_is_research then
+    insert into public.project_ai_usage(user_id, usage_date, standard_count, research_count)
+    values (v_user, v_day, 0, 1)
+    on conflict (user_id, usage_date) do update
+      set research_count = public.project_ai_usage.research_count + 1
+      where public.project_ai_usage.research_count < 5
+    returning research_count into v_count;
+    if v_count is null then return -1; end if;
+    return 5 - v_count;
+  else
+    insert into public.project_ai_usage(user_id, usage_date, standard_count, research_count)
+    values (v_user, v_day, 1, 0)
+    on conflict (user_id, usage_date) do update
+      set standard_count = public.project_ai_usage.standard_count + 1
+      where public.project_ai_usage.standard_count < 30
+    returning standard_count into v_count;
+    if v_count is null then return -1; end if;
+    return 30 - v_count;
+  end if;
+end;
+$$;
+revoke all on function public.consume_project_ai_quota(boolean) from public, anon;
+grant execute on function public.consume_project_ai_quota(boolean) to authenticated;
+
+comment on table public.project_ai_messages is 'Private, project-scoped AI copilot messages; source links are stored with assistant drafts.';
+comment on table public.project_ai_usage is 'Private daily rate limits for the project copilot.';
 
 commit;

@@ -18,7 +18,8 @@ if (signupForm) signupForm.addEventListener('submit', async event => {
   if (password !== confirm) return show('The passwords do not match.');
   busy(signupForm, true);
   try {
-    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
+    const redirectTo = new URL('dashboard.html?confirmed=1', location.href).href;
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: redirectTo } });
     if (error) throw error;
     if (data.session) window.location.replace('dashboard.html');
     else show('Account created. Check your email for a confirmation link before logging in.', 'success');

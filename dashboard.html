@@ -1,1 +1,84 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Overview — Odrusmark</title><meta name="robots" content="noindex"><link rel="stylesheet" href="css/styles.css"></head><body class="app-page"><header class="app-header"><a class="brand" href="index.html"><span class="brand-mark">O</span><span>ODRUSMARK</span></a><nav class="app-nav"><a class="active" href="dashboard.html">Overview</a><a href="dashboard.html#projects">Projects</a><a href="dashboard.html#research">Research</a><a class="nav-cta" href="new-project.html">+ Start a project</a><a href="profile.html">Profile</a><span class="app-user" data-user-email></span><button type="button" data-signout>Sign out</button></nav></header><div class="app-layout"><aside class="app-sidebar"><p class="sidebar-label">WORKSPACE</p><nav class="sidebar-nav"><a class="active" href="dashboard.html"><span class="side-symbol">▦</span>Overview</a><a href="dashboard.html#projects"><span class="side-symbol">▤</span>Projects</a><a href="dashboard.html#research"><span class="side-symbol">⌕</span>Research</a><a href="profile.html"><span class="side-symbol">◉</span>Account</a></nav><p class="sidebar-label">ODRUSMARK</p><p class="sidebar-note">Start with the outcome. We’ll help discover the how.</p></aside><main class="app-main"><p class="app-breadcrumb">WORKSPACE / OVERVIEW</p><div class="app-title-row"><div><p class="eyebrow">YOUR WORKSPACE</p><h1>Welcome back, <span id="welcome-name">there</span></h1><p>Pick up where you left off, or start with something new.</p></div><a class="button" href="new-project.html">+ Start a project <span>↗</span></a></div><div class="stats-grid"><article class="stat-card"><span>Active projects</span><strong id="stat-active">—</strong></article><article class="stat-card"><span>Completed</span><strong id="stat-completed">—</strong></article><article class="stat-card"><span>Needs attention</span><strong id="stat-attention">—</strong></article></div><section class="dashboard-panel" id="projects"><div class="panel-heading"><h2>Your projects</h2><a href="new-project.html">+ Start a project</a></div><div id="projects-content"><div class="loading-state">Loading your projects…</div></div></section><section class="dashboard-panel" id="research" style="margin-top:22px"><div class="panel-heading"><h2>Research requests</h2><a href="request.html">+ New research request</a></div><div id="research-content"><div class="loading-state">Loading your research…</div></div></section></main></div><script type="module" src="js/dashboard.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Client workspace — Odrusmark</title><meta name="robots" content="noindex">
+  <meta name="description" content="Your private Odrusmark client workspace.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="app-page client-dashboard">
+  <header class="app-header">
+    <a class="brand" href="index.html"><span class="brand-mark">O</span><span>ODRUSMARK</span></a>
+    <nav class="app-nav" aria-label="Account navigation">
+      <a class="active" href="dashboard.html">Workspace</a><a href="#projects">Projects</a>
+      <a href="profile.html">Profile</a><span class="app-user" data-user-email></span>
+      <button type="button" data-signout>Sign out</button>
+    </nav>
+  </header>
+  <div class="app-layout">
+    <aside class="app-sidebar">
+      <p class="sidebar-label">YOUR WORK</p>
+      <nav class="sidebar-nav" aria-label="Workspace navigation">
+        <a class="active" href="dashboard.html"><span class="side-symbol">▦</span>Overview</a>
+        <a href="#projects"><span class="side-symbol">▤</span>Projects</a>
+        <a href="#copilot"><span class="side-symbol">✳</span>AI project copilot</a>
+        <a href="profile.html"><span class="side-symbol">◉</span>Account</a>
+      </nav>
+      <p class="sidebar-label">ODRUSMARK</p><p class="sidebar-note">One workspace for the question, the evidence and the next decision.</p>
+    </aside>
+    <main class="app-main">
+      <p class="app-breadcrumb">WORKSPACE / OVERVIEW</p>
+      <div class="app-title-row">
+        <div><p class="eyebrow">CLIENT WORKSPACE</p><h1>Welcome back, <span id="welcome-name">there</span></h1><p>See what is moving, what we have learned and what needs a decision.</p></div>
+        <a class="button" href="new-project.html">Start a project <span>↗</span></a>
+      </div>
+      <div class="stats-grid" aria-label="Project summary">
+        <article class="stat-card"><span>Total projects</span><strong id="stat-total">—</strong></article>
+        <article class="stat-card"><span>In progress</span><strong id="stat-active">—</strong></article>
+        <article class="stat-card"><span>Completed</span><strong id="stat-completed">—</strong></article>
+        <article class="stat-card"><span>Needs your input</span><strong id="stat-attention">—</strong></article>
+      </div>
+
+      <section class="copilot-panel" id="copilot" aria-labelledby="copilot-title">
+        <div class="copilot-heading">
+          <div><p class="eyebrow">ODRUSMARK AI · PROJECT COPILOT</p><h2 id="copilot-title">Move a hard question forward.</h2><p>Clarify the problem, shape an investigation or research a question with sources.</p></div>
+          <span class="copilot-badge">AI DRAFT · REVIEW BEFORE RELYING</span>
+        </div>
+        <div class="copilot-controls">
+          <label for="copilot-project">Project</label>
+          <select id="copilot-project" aria-describedby="copilot-context"><option value="">Loading your projects…</option></select>
+          <p id="copilot-context" class="copilot-context">The copilot uses only the selected project and its recent Odrusmark updates.</p>
+        </div>
+        <div class="copilot-actions" aria-label="Copilot actions">
+          <button type="button" data-copilot-mode="clarify">Clarify my project</button>
+          <button type="button" data-copilot-mode="plan">Draft an investigation plan</button>
+          <button type="button" data-copilot-mode="research">Research with sources</button>
+        </div>
+        <div class="copilot-thread" id="copilot-thread" aria-live="polite" aria-label="AI project conversation">
+          <div class="copilot-welcome"><strong>Start with the project question.</strong><p>Choose an action above, or ask what you need to understand or decide. Odrusmark staff review and verify findings before they become official project updates.</p></div>
+        </div>
+        <div class="copilot-consent-wrap">
+          <label class="copilot-consent"><input type="checkbox" id="copilot-consent"><span>When I use the copilot, the selected project brief, recent Odrusmark updates and my messages will be sent to OpenAI to generate a response. Project files are not sent. I understand AI responses are drafts and may be inaccurate.</span></label>
+        </div>
+        <form id="copilot-form" class="copilot-form">
+          <label class="sr-only" for="copilot-message">Ask about this project</label>
+          <textarea id="copilot-message" name="message" rows="3" maxlength="2500" placeholder="What decision are you trying to make? What would you like to investigate?" required disabled></textarea>
+          <div class="copilot-submit-row"><span>Don’t include passwords or sensitive personal data.</span><button class="button" id="copilot-send" type="submit" disabled>Ask Odrusmark AI <span>↗</span></button></div>
+        </form>
+        <p class="copilot-status" id="copilot-status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="dashboard-panel" id="projects">
+        <div class="panel-heading"><h2>Your projects</h2><a href="new-project.html">+ Start a project</a></div>
+        <div id="projects-content"><div class="loading-state">Loading your projects…</div></div>
+      </section>
+      <section class="dashboard-panel" id="research" style="margin-top:22px">
+        <div class="panel-heading"><h2>Research requests</h2><a href="request.html">+ New research request</a></div>
+        <div id="research-content"><div class="loading-state">Loading your research…</div></div>
+      </section>
+      <p class="workspace-help">Need a person? Contact <a href="mailto:hello@odrusmark.com">Odrusmark</a> and include your project title.</p>
+    </main>
+  </div>
+  <script type="module" src="js/dashboard.js"></script>
+</body>
+</html>
